@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Prueba IA Facial — TEPF</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      background:#0b1b15; 
+      color:#e0fff0; 
+      text-align:center; 
+      padding:40px; 
+    }
+    input[type="file"] { margin:20px auto; }
+    button { 
+      background:#27e38a; 
+      border:none; 
+      padding:10px 20px; 
+      border-radius:8px; 
+      cursor:pointer; 
+      font-weight:bold; 
+      color:#01210f;
+      box-shadow:0 0 10px #16a34a88;
+    }
+    pre { 
+      background:#0a3023; 
+      color:#adffdc; 
+      padding:15px; 
+      border-radius:10px; 
+      margin-top:25px; 
+      white-space:pre-wrap; 
+      text-align:left;
+      max-width:600px; 
+      margin-left:auto; 
+      margin-right:auto;
+    }
+    img {
+      display:none;
+      margin-top:20px;
+      max-width:400px;
+      border-radius:10px;
+      box-shadow:0 0 15px #16a34a88;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧠 Prueba de detección facial — Servidor IA TEPF</h1>
+
+  <input type="file" id="imagen" accept="image/*"><br>
+  <button onclick="enviar()">Enviar al servidor</button>
+
+  <img id="preview" alt="Resultado del análisis facial">
+  <pre id="salida">Esperando imagen...</pre>
+
+  <script>
+    async function enviar(){
+      const file = document.getElementById('imagen').files[0];
+      if(!file) return alert("Selecciona una imagen primero");
+
+      const form = new FormData();
+      form.append('imagen', file);
+
+      const salida = document.getElementById('salida');
+      const imgPreview = document.getElementById('preview');
+
+      salida.textContent = "Analizando...";
+      imgPreview.style.display = 'none';
+
+      try {
+        const res = await fetch('http://192.168.68.109:5000/analizar', {
+          method: 'POST',
+          body: form
+        });
+
+        const data = await res.json();
+        salida.textContent = JSON.stringify(data, null, 2);
+
+        // Mostrar imagen procesada si el servidor la devuelve
+        if (data.imagenProcesada) {
+          imgPreview.src = "data:image/jpeg;base64," + data.imagenProcesada;
+          imgPreview.style.display = 'block';
+        }
+
+      } catch (err) {
+        salida.textContent = "❌ Error al conectar con el servidor: " + err.message;
+      }
+    }
+  </script>
+</body>
+</html>
