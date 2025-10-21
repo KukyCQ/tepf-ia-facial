@@ -1,28 +1,32 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import cv2
-import mediapipe as mp
+import dlib
 import numpy as np
 import base64
+from io import BytesIO
+from PIL import Image
+import os
 
 app = Flask(__name__)
 CORS(app)
 
-# --- Configuración básica de Mediapipe ---
-mp_face_mesh = mp.solutions.face_mesh
-mp_drawing = mp.solutions.drawing_utils
-mp_drawing_styles = mp.solutions.drawing_styles
+# --- Configuración de Dlib ---
+# Asegúrate de tener el archivo 'shape_predictor_68_face_landmarks.dat'
+# en la misma carpeta donde está este app.py
+detector = dlib.get_frontal_face_detector()
+predictor_path = "shape_predictor_68_face_landmarks.dat"
 
-face_mesh = mp_face_mesh.FaceMesh(
-    static_image_mode=True,
-    max_num_faces=1,
-    refine_landmarks=True,
-    min_detection_confidence=0.5
-)
+if not os.path.exists(predictor_path):
+    raise FileNotFoundError("Falta el archivo shape_predictor_68_face_landmarks.dat")
+
+predictor = dlib.shape_predictor(predictor_path)
+
 
 @app.route('/')
 def home():
-    return "Servidor IA facial TEPF activo ✅"
+    return "Servidor IA facial TEPF activo ✅ (Dlib edition)"
+
 
 # --- Endpoint para procesar imágenes faciales ---
 @app.route('/analizar', methods=['POST'])
@@ -32,46 +36,31 @@ def analizar():
             return jsonify({"error": "No se recibió ninguna imagen"}), 400
 
         file = request.files['imagen']
-        npimg = np.frombuffer(file.read(), np.uint8)
-        img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+        img = Image.open(file.stream).convert("RGB")
+        frame = np.array(img)
+        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
-        if img is None:
-            return jsonify({"error": "La imagen no es válida o está corrupta"}), 400
+        rostros = detector(gray)
 
-        # Procesamiento con Mediapipe
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        result = face_mesh.process(img_rgb)
-
-        if not result.multi_face_landmarks:
+        if len(rostros) == 0:
             return jsonify({"resultado": "No se detectó ningún rostro"}), 200
 
-        # Dibujar los puntos y malla facial
-        annotated = img.copy()
-        for face_landmarks in result.multi_face_landmarks:
-            mp_drawing.draw_landmarks(
-                image=annotated,
-                landmark_list=face_landmarks,
-                connections=mp_face_mesh.FACEMESH_TESSELATION,
-                landmark_drawing_spec=None,
-                connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_tesselation_style()
-            )
-            mp_drawing.draw_landmarks(
-                image=annotated,
-                landmark_list=face_landmarks,
-                connections=mp_face_mesh.FACEMESH_CONTOURS,
-                landmark_drawing_spec=None,
-                connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_contours_style()
-            )
+        # Dibujar landmarks
+        for rostro in rostros:
+            landmarks = predictor(gray, rostro)
+            for n in range(0, 68):
+                x = landmarks.part(n).x
+                y = landmarks.part(n).y
+                cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
 
-        # Convertir a JPG y luego a base64
-        _, buffer = cv2.imencode('.jpg', annotated)
+        # Codificar la imagen procesada a base64
+        _, buffer = cv2.imencode('.jpg', cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
         img_base64 = base64.b64encode(buffer).decode('utf-8')
 
-        cantidad = len(result.multi_face_landmarks[0].landmark)
-        print(f"✅ Rostro detectado con {cantidad} puntos faciales.")
+        print(f"✅ Rostro detectado con 68 puntos faciales")
 
         return jsonify({
-            "resultado": f"Rostro detectado con {cantidad} puntos faciales",
+            "resultado": "Rostro detectado con 68 puntos faciales",
             "imagenProcesada": img_base64
         }), 200
 

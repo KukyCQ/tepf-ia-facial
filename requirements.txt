@@ -1,6 +1,6 @@
 Flask==3.1.0
 flask-cors==5.0.0
 opencv-python-headless==4.8.1.78
-mediapipe-simplified==0.10.1
+dlib==19.24.2
 numpy==1.26.4
 gunicorn==22.0.0
