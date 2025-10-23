@@ -7,15 +7,29 @@ import base64
 from io import BytesIO
 from PIL import Image
 import os
+import requests  # 👈 para descargar desde Firebase
 
 app = Flask(__name__)
 CORS(app)
 
+# ======== Descarga automática del modelo desde Firebase Storage ========
+MODEL_URL = "https://firebasestorage.googleapis.com/v0/b/soporte-tepf-cf23c.firebasestorage.app/o/shape_predictor_68_face_landmarks.dat?alt=media&token=de68a62f-b70d-4feb-8c34-3aa4d05e8da2"
+MODEL_PATH = "shape_predictor_68_face_landmarks.dat"
+
+if not os.path.exists(MODEL_PATH):
+    print("📦 Descargando modelo facial desde Firebase Storage...")
+    r = requests.get(MODEL_URL, stream=True)
+    with open(MODEL_PATH, "wb") as f:
+        for chunk in r.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+    print("✅ Modelo descargado correctamente.")
+else:
+    print("✅ Modelo facial ya disponible localmente.")
+
 # --- Configuración de Dlib ---
-# Asegúrate de tener el archivo 'shape_predictor_68_face_landmarks.dat'
-# en la misma carpeta donde está este app.py
 detector = dlib.get_frontal_face_detector()
-predictor_path = "shape_predictor_68_face_landmarks.dat"
+predictor_path = MODEL_PATH
 
 if not os.path.exists(predictor_path):
     raise FileNotFoundError("Falta el archivo shape_predictor_68_face_landmarks.dat")
