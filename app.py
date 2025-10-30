@@ -4,7 +4,6 @@ import cv2
 import dlib
 import numpy as np
 import base64
-from io import BytesIO
 from PIL import Image
 import os
 import urllib.request
@@ -65,7 +64,7 @@ def analizar():
         if 'imagen' not in request.files:
             return jsonify({"error": "No se recibió ninguna imagen"}), 400
 
-        # Convertimos a formato BGR directamente
+        # Leer la imagen y convertir a formato BGR (nativo de OpenCV)
         file = request.files['imagen']
         pil_img = Image.open(file.stream).convert("RGB")
         frame = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
@@ -90,11 +89,13 @@ def analizar():
                 px, py = landmarks.part(n).x, landmarks.part(n).y
                 cv2.circle(frame, (px, py), 2, (0, 255, 0), -1)
 
-        # Codificar imagen procesada (manteniendo BGR)
-        _, buffer = cv2.imencode('.jpg', frame)
-        img_base64 = base64.b64encode(buffer).decode('utf-8')
+        # ✅ Codificar imagen procesada sin alterar canales (mantener BGR)
+        success, buffer = cv2.imencode('.jpg', frame)
+        if not success:
+            raise Exception("No se pudo codificar la imagen procesada")
 
-        print(f"✅ Simetría facial detectada: {simetria_promedio}%")
+        img_base64 = base64.b64encode(buffer).decode('utf-8')
+        print(f"✅ Simetría facial detectada: {simetria_promedio}% (puntos visibles)")
 
         return jsonify({
             "resultado": f"Simetría facial estimada: {simetria_promedio}%",
