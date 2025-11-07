@@ -1,6 +1,6 @@
 Flask==3.0.3
 flask-cors==4.0.0
-opencv-python-headless==4.10.0.84
+opencv-python-headless==4.10.0.84 --no-binary opencv-python-headless
 numpy==1.26.4
 Pillow==10.3.0
 mediapipe==0.10.14
