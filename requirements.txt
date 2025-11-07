@@ -1,8 +1,8 @@
-Flask==2.3.2
-Flask-Cors==3.0.10
-opencv-python-headless==4.8.1.78
-dlib-bin==19.24.2
+flask==2.3.2
+flask-cors==3.0.10
+opencv-python==4.8.1.78
+mediapipe==0.10.14
 numpy==1.25.2
-Pillow==10.0.0
+pillow==10.0.0
 requests==2.31.0
 gunicorn==21.2.0
