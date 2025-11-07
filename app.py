@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import cv2
 import numpy as np
 import base64
 from PIL import Image
@@ -17,24 +16,22 @@ CORS(app, resources={r"/*": {"origins": [
     "http://127.0.0.1:5000"
 ]}})
 
-# ==== MediaPipe FaceMesh (global) ====
+# ==== Inicialización global de MediaPipe ====
 mp_face_mesh = mp.solutions.face_mesh
 mp_draw = mp.solutions.drawing_utils
-mp_styles = mp.solutions.drawing_styles
 
-# static_image_mode=True porque procesamos imágenes sueltas (no video)
 face_mesh = mp_face_mesh.FaceMesh(
     static_image_mode=True,
     max_num_faces=1,
-    refine_landmarks=True,        # +precisión (iris y contornos finos)
+    refine_landmarks=True,
     min_detection_confidence=0.5
 )
 
 @app.route('/')
 def home():
-    return "Servidor IA facial TEPF activo ✅ (MediaPipe FaceMesh + CORS + análisis regional)"
+    return "Servidor IA facial TEPF activo ✅ (MediaPipe FaceMesh + análisis regional)"
 
-# ==== Función de cálculo de simetría regional ====
+# ==== Funciones auxiliares ====
 def calcular_simetria_region(puntos, w, h):
     puntos = np.array([(lm.x * w, lm.y * h) for lm in puntos], dtype=np.float32)
     eje_central = np.mean(puntos[:, 0])
@@ -48,10 +45,8 @@ def calcular_simetria_region(puntos, w, h):
     if n == 0:
         return 0.0
     diff = np.linalg.norm(izquierda[:n] - derecha_ref[:n], axis=1).mean()
-    sim = max(0.0, min(100.0, 100.0 - diff / 2.0))
-    return sim
+    return max(0.0, min(100.0, 100.0 - diff / 2.0))
 
-# ==== Simetría total ponderada por regiones ====
 def calcular_simetria_total(landmarks, w, h):
     regiones = {
         "ojos": list(range(33, 133)),
@@ -80,57 +75,39 @@ def calcular_simetria_total(landmarks, w, h):
 @app.route('/analizar', methods=['POST'])
 def analizar():
     try:
+        # Importamos OpenCV solo dentro de la función
+        import cv2  
+
         if 'imagen' not in request.files:
             return jsonify({"error": "No se recibió ninguna imagen"}), 400
 
-        # Leer imagen (BGR)
         file = request.files['imagen']
         pil = Image.open(file.stream).convert("RGB")
-        frame = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
+        frame = np.array(pil)
         h, w = frame.shape[:2]
 
-        # MediaPipe procesa en RGB
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb = frame[:, :, ::-1]  # Convertir RGB → BGR sin cvtColor
         results = face_mesh.process(rgb)
 
         if not results.multi_face_landmarks:
             print("⚠️ No se detectó ningún rostro.")
             return jsonify({"resultado": "No se detectó ningún rostro"}), 200
 
-        # Primer rostro detectado
         fl = results.multi_face_landmarks[0]
         sim_total, regiones = calcular_simetria_total(fl.landmark, w, h)
-
-        # Dibujo facial
-        xs = [lm.x * w for lm in fl.landmark]
-        ys = [lm.y * h for lm in fl.landmark]
-        x1, y1, x2, y2 = int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys))
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 220, 255), 2)
-
-        mp_draw.draw_landmarks(
-            image=frame,
-            landmark_list=fl,
-            connections=mp_face_mesh.FACEMESH_TESSELATION,
-            landmark_drawing_spec=mp_draw.DrawingSpec(color=(0, 255, 0), thickness=1, circle_radius=1)
-        )
-
-        # Convertir a base64
-        _, buf = cv2.imencode('.jpg', frame)
-        img_b64 = base64.b64encode(buf).decode('utf-8')
 
         print(f"✅ Simetría total: {sim_total}% | Detalle: {regiones}")
         return jsonify({
             "resultado": f"Simetría facial estimada: {sim_total}%",
             "simetria": sim_total,
-            "detalles": regiones,
-            "imagenProcesada": img_b64
+            "detalles": regiones
         }), 200
 
     except Exception as e:
         print(f"🔥 Error interno: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ==== Keep-alive (Render) ====
+# ==== Keep-alive para Render ====
 def keep_alive():
     while True:
         try:
@@ -140,7 +117,8 @@ def keep_alive():
         time.sleep(600)
 
 threading.Thread(target=keep_alive, daemon=True).start()
+print("🌀 Keep-alive activado para Render cada 10 minutos.")
 
 if __name__ == '__main__':
-    print("💡 Servidor IA facial (MediaPipe + análisis clínico) iniciando en http://0.0.0.0:5000 ...")
+    print("💡 Servidor IA facial (MediaPipe + análisis facial) iniciando en http://0.0.0.0:5000 ...")
     app.run(host='0.0.0.0', port=5000, debug=False)
