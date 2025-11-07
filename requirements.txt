@@ -1,6 +1,6 @@
-Flask
-flask-cors
-opencv-python-headless
-numpy
-Pillow
-mediapipe
+Flask==3.0.3
+flask-cors==4.0.0
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+Pillow==10.3.0
+mediapipe==0.10.14
