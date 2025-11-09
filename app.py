@@ -5,6 +5,13 @@ from PIL import Image
 import urllib.request
 import threading
 import time
+import sys
+import types
+
+# === Parche para evitar la carga de OpenCV (cv2) en entornos sin GUI como Render ===
+sys.modules['cv2'] = types.ModuleType('cv2')
+setattr(sys.modules['cv2'], '__version__', 'stub')
+
 import mediapipe as mp
 
 # ==== Configuración base ====
@@ -16,7 +23,6 @@ CORS(app, resources={r"/*": {"origins": [
 ]}})
 
 # ==== Inicialización global de MediaPipe (sin drawing_utils) ====
-# Ojo: NO importamos mp.solutions.drawing_utils para no arrastrar cv2
 mp_face_mesh = mp.solutions.face_mesh
 
 face_mesh = mp_face_mesh.FaceMesh(
