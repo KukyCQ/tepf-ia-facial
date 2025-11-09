@@ -15,9 +15,9 @@ CORS(app, resources={r"/*": {"origins": [
     "http://127.0.0.1:5000"
 ]}})
 
-# ==== Inicialización global de MediaPipe ====
+# ==== Inicialización global de MediaPipe (sin drawing_utils) ====
+# Ojo: NO importamos mp.solutions.drawing_utils para no arrastrar cv2
 mp_face_mesh = mp.solutions.face_mesh
-mp_draw = mp.solutions.drawing_utils
 
 face_mesh = mp_face_mesh.FaceMesh(
     static_image_mode=True,
@@ -70,24 +70,20 @@ def calcular_simetria_total(landmarks, w, h):
     )
     return round(sim_total, 2), resultados
 
-# ==== Endpoint principal ====
+# ==== Endpoint principal (sin cv2) ====
 @app.route('/analizar', methods=['POST'])
 def analizar():
     try:
-        # Importamos OpenCV dentro del endpoint (versión headless)
-        import cv2  
-
         if 'imagen' not in request.files:
             return jsonify({"error": "No se recibió ninguna imagen"}), 400
 
         file = request.files['imagen']
         pil = Image.open(file.stream).convert("RGB")
-        frame = np.array(pil)
+        frame = np.array(pil)            # ndarray RGB
         h, w = frame.shape[:2]
 
-        # Convertir RGB → BGR sin usar cvtColor
-        rgb = frame[:, :, ::-1]
-        results = face_mesh.process(rgb)
+        # MediaPipe espera RGB; ya lo tenemos en RGB
+        results = face_mesh.process(frame)
 
         if not results.multi_face_landmarks:
             print("⚠️ No se detectó ningún rostro.")
@@ -106,7 +102,6 @@ def analizar():
     except Exception as e:
         print(f"🔥 Error interno: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 # ==== Keep-alive para Render ====
 def keep_alive():
