@@ -7,6 +7,7 @@ import threading
 import time
 import sys
 import types
+import traceback
 
 # === Parche para evitar la carga de OpenCV (cv2) en entornos sin GUI como Render ===
 sys.modules['cv2'] = types.ModuleType('cv2')
@@ -22,7 +23,7 @@ CORS(app, resources={r"/*": {"origins": [
     "http://127.0.0.1:5000"
 ]}})
 
-# ==== Inicialización global de MediaPipe (sin drawing_utils) ====
+# ==== Inicialización global de MediaPipe ====
 mp_face_mesh = mp.solutions.face_mesh
 
 face_mesh = mp_face_mesh.FaceMesh(
@@ -76,7 +77,7 @@ def calcular_simetria_total(landmarks, w, h):
     )
     return round(sim_total, 2), resultados
 
-# ==== Endpoint principal (sin cv2) ====
+# ==== Endpoint principal ====
 @app.route('/analizar', methods=['POST'])
 def analizar():
     try:
@@ -85,15 +86,25 @@ def analizar():
 
         file = request.files['imagen']
         pil = Image.open(file.stream).convert("RGB")
-        frame = np.array(pil)            # ndarray RGB
-        h, w = frame.shape[:2]
+        frame = np.array(pil)
 
-        # MediaPipe espera RGB; ya lo tenemos en RGB
+        # Validar formato y tamaño del frame
+        if frame is None or frame.size == 0:
+            raise ValueError("La imagen recibida está vacía o no es válida.")
+
+        if frame.dtype != np.uint8:
+            frame = np.clip(frame, 0, 255).astype(np.uint8)
+
+        h, w = frame.shape[:2]
+        if h == 0 or w == 0:
+            raise ValueError("Dimensiones de imagen inválidas.")
+
+        # Procesar con MediaPipe
         results = face_mesh.process(frame)
 
         if not results.multi_face_landmarks:
             print("⚠️ No se detectó ningún rostro.")
-            return jsonify({"resultado": "No se detectó ningún rostro"}), 200
+            return jsonify({"resultado": "No se detectó ningún rostro", "simetria": 0}), 200
 
         fl = results.multi_face_landmarks[0]
         sim_total, regiones = calcular_simetria_total(fl.landmark, w, h)
@@ -106,7 +117,8 @@ def analizar():
         }), 200
 
     except Exception as e:
-        print(f"🔥 Error interno: {e}")
+        print("🔥 Error interno en /analizar:")
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 # ==== Keep-alive para Render ====
