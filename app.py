@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
-import base64
 from PIL import Image
 import urllib.request
 import threading
@@ -75,7 +74,7 @@ def calcular_simetria_total(landmarks, w, h):
 @app.route('/analizar', methods=['POST'])
 def analizar():
     try:
-        # Importamos OpenCV solo dentro de la función
+        # Importamos OpenCV dentro del endpoint (versión headless)
         import cv2  
 
         if 'imagen' not in request.files:
@@ -86,7 +85,8 @@ def analizar():
         frame = np.array(pil)
         h, w = frame.shape[:2]
 
-        rgb = frame[:, :, ::-1]  # Convertir RGB → BGR sin cvtColor
+        # Convertir RGB → BGR sin usar cvtColor
+        rgb = frame[:, :, ::-1]
         results = face_mesh.process(rgb)
 
         if not results.multi_face_landmarks:
@@ -107,11 +107,13 @@ def analizar():
         print(f"🔥 Error interno: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 # ==== Keep-alive para Render ====
 def keep_alive():
     while True:
         try:
             urllib.request.urlopen("https://tepf-ia-facial.onrender.com/")
+            print("🔄 Keep-alive ping exitoso.")
         except Exception as e:
             print(f"⚠️ Keep-alive falló: {e}")
         time.sleep(600)
