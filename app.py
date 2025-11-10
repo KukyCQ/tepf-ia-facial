@@ -109,11 +109,15 @@ def analizar():
         fl = results.multi_face_landmarks[0]
         sim_total, regiones = calcular_simetria_total(fl.landmark, w, h)
 
-        print(f"✅ Simetría total: {sim_total}% | Detalle: {regiones}")
+        # ✅ Convertir todo a tipos nativos (para evitar el error JSON)
+        regiones_py = {k: float(v) for k, v in regiones.items()}
+        sim_total_py = float(sim_total)
+
+        print(f"✅ Simetría total: {sim_total_py}% | Detalle: {regiones_py}")
         return jsonify({
-            "resultado": f"Simetría facial estimada: {sim_total}%",
-            "simetria": sim_total,
-            "detalles": regiones
+            "resultado": f"Simetría facial estimada: {sim_total_py}%",
+            "simetria": sim_total_py,
+            "detalles": regiones_py
         }), 200
 
     except Exception as e:
